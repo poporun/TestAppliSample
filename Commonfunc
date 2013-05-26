@@ -1,0 +1,27 @@
+import java.util.Random;
+
+public class Commonfunc {
+  Random rdmbase = new Random();
+	
+	public int RandNum(int seed) {
+		int result;
+		result = rdmbase.nextInt();
+		result &= 0x7fffffff;
+		result %= seed;
+		return result;
+	}
+	
+	public int CalcStrLen(String str) {
+		int idx;
+		int len = 0;
+		for (idx = 0; idx < str.length(); idx++) {
+			if ((str.charAt(idx) >= 0x20 && str.charAt(idx) <= 0x7F ) ||
+			  str.charAt(idx) == 0x0D || str.charAt(idx) == 0x0A ) {
+				len++;
+			} else {
+				len = len + 2;
+			}
+		}
+		return len;
+	}
+}
