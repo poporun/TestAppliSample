@@ -1,0 +1,404 @@
+import javax.microedition.lcdui.Alert;
+import javax.microedition.lcdui.AlertType;
+import javax.microedition.lcdui.Canvas;
+import javax.microedition.lcdui.Display;
+import javax.microedition.lcdui.Graphics;
+import javax.microedition.lcdui.Image;
+import javax.microedition.midlet.MIDlet;
+import javax.microedition.lcdui.*;
+
+public class TestAppliSample extends MIDlet implements Runnable {
+  
+	Thread thread;
+	
+	Image offi;
+	Canvas canvas;
+	
+	int COLOR_BLACK = 0x000000;
+	int COLOR_WHITE = 0xFFFFFF;
+	
+	int WRONG_ANSWER = 10;
+	
+	int Q_LATEST = 20;
+	int Q_PRIORITY = 40;
+	int Q_RANDOM = 80;
+	
+	StringBuffer keyBuffer = new StringBuffer();
+	
+	StringBuffer[] quizdata = new StringBuffer[150];
+	StringBuffer[] qtemplate = new StringBuffer[150];
+
+	Subject010 stext1 = new Subject010();
+	Subject011 stext2 = new Subject011();
+	Subject020 stext3 = new Subject020();
+	Subject021 stext4 = new Subject021();
+
+	int SUBJECT_TOTAL = stext1.Qtotal() + stext2.Qtotal() + stext3.Qtotal() + stext4.Qtotal();
+
+	int qat[][] = new int[SUBJECT_TOTAL][5];
+	int Qat_RESET = 0;
+	int Qat_ANSWER = 1;
+	
+	Commonfunc cf = new Commonfunc();
+	
+	public TestAppliSample() {
+		canvas = new Canvas() {
+			public void paint(Graphics g) {
+				g.drawImage(offi, 0, 0, Graphics.TOP | Graphics.LEFT);
+			}
+			protected void keyPressed(int keyCode) {
+                // 落下中でかつ先行入力が２つ未満の場合のみキー入力を受け付ける
+                if (keyBuffer.length() < 2) {
+                    if (keyCode == 48) {
+                        keyBuffer.append('0');
+                    } else if (keyCode == 49) {
+                        keyBuffer.append('1');
+                    } else if (keyCode == 50) {
+                        keyBuffer.append('2');
+                    } else if (keyCode == 51) {
+                        keyBuffer.append('3');
+                    } else if (keyCode == 52) {
+                        keyBuffer.append('4');
+                    } else if (keyCode == 53) {
+                        keyBuffer.append('5');
+                    } else if (keyCode == 54) {
+                        keyBuffer.append('6');
+                    } else if (keyCode == 55) {
+                        keyBuffer.append('7');
+                    } else if (keyCode == 56) {
+                        keyBuffer.append('8');
+                    } else if (keyCode == 57) {
+                        keyBuffer.append('9');
+                    } else if (keyCode == -1) {
+                        keyBuffer.append('U');
+                    } else if (keyCode == -6) {
+                        keyBuffer.append('D');
+                    } else if (keyCode == 35) {
+                        keyBuffer.append('#');
+                    }
+                }
+			}
+		};
+		offi = Image.createImage(canvas.getWidth(), canvas.getHeight());
+		Display.getDisplay(this).setCurrent(canvas);
+	}
+	
+	protected void startApp() {
+		if (thread == null) {
+			thread = new Thread(this);
+			thread.start();
+		}
+	}
+	
+	protected void pauseApp() {
+		// このイベントは利用しないので実装する必要はない
+	}
+	
+	protected void destroyApp(boolean unconditional) {
+		// このイベントは利用しないので実装する必要はない
+	}
+	
+	void drawText(Graphics g, int start, int qno, int qcnt, int displen, int badcnt) {
+		int line;
+		int startline;
+		g.setColor(COLOR_WHITE);
+		g.fillRect(0, 0, canvas.getWidth(), 289);
+		g.setColor(COLOR_BLACK);
+		g.setFont(Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL));
+		g.drawString("["+qcnt+"/"+SUBJECT_TOTAL+"("+stext1.Qtotal()+"&"+stext2.Qtotal()+"&"+stext3.Qtotal()+"&"+stext4.Qtotal()+")] ("+start+":"+displen+") x"+badcnt, 0, 0, Graphics.TOP | Graphics.LEFT);
+		startline = start;
+		for (line = 1; line < 24; line++){
+			g.drawString(quizdata[startline++].toString(), 0, line * 12, Graphics.TOP | Graphics.LEFT);
+			if (quizdata[startline].toString().equals("---END---") == true) break;
+		}
+	}
+	
+	void drawKey(Graphics g, String pushKey) {
+		g.setColor(COLOR_WHITE);
+		g.fillRect(0, 295, canvas.getWidth(), canvas.getHeight());
+		g.setColor(COLOR_BLACK);
+		g.setFont(Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL));
+		g.drawString(pushKey, 0, 295, Graphics.TOP | Graphics.LEFT);
+	}
+	
+	public void run() {
+		Graphics g = offi.getGraphics();
+		char key = 'N';
+		StringBuffer myanswer = new StringBuffer("*");
+		int start = 1;
+		int idx;
+		int qno;
+		int[] answer = new int[10];
+		int nextq;
+		int badq = 0;
+		int qcnt = 1;
+		int badcnt = 0;
+		QatInit();
+		qno = NextQuestion(qcnt);
+		SetTemplate(qno);
+		int displen;
+		displen = QuizDispSet(qno);
+		while (true) {
+			if (keyBuffer.length() > 0) {
+				keyBuffer.delete(0, keyBuffer.length() - 1);
+			}
+			if (keyBuffer.length() > 0) {
+				key = keyBuffer.charAt(0);
+				keyBuffer.deleteCharAt(0);
+				if (key == '0' && myanswer.toString().length() != 1) {
+					if (myanswer.toString().equals(quizdata[0].toString())){
+						if (badq < WRONG_ANSWER) {
+							qcnt++;
+							if (qat[qno][4] == 2) badcnt--;
+							qat[qno][4] = 1;
+						}
+						if (qcnt > SUBJECT_TOTAL) {
+							QatInit();
+							qcnt = 1;
+						}
+						qno = NextQuestion(qcnt);
+						SetTemplate(qno);
+						displen = QuizDispSet(qno);
+						start = 1;
+						myanswer = new StringBuffer("*");
+						for (idx = 1; idx < answer.length; idx++) answer[idx] = 0;
+						badq = 0;
+					}else{
+						badq++;
+					}
+					sleep(100);
+				} else if (key == '#' && qcnt != SUBJECT_TOTAL && badq < WRONG_ANSWER) {
+					qno = NextQuestion(qcnt);
+					SetTemplate(qno);
+					displen = QuizDispSet(qno);
+					start = 1;
+					myanswer = new StringBuffer("*");
+					for (idx = 1; idx < answer.length; idx++) answer[idx] = 0;
+					badq = 0;
+				} else if (key == '1') {
+					if (answer[1] == 0) answer[1] = 1; else answer[1] = 0;
+				} else if (key == '2') {
+					if (answer[2] == 0) answer[2] = 1; else answer[2] = 0;
+				} else if (key == '3') {
+					if (answer[3] == 0) answer[3] = 1; else answer[3] = 0;
+				} else if (key == '4') {
+					if (answer[4] == 0) answer[4] = 1; else answer[4] = 0;
+				} else if (key == '5') {
+					if (answer[5] == 0) answer[5] = 1; else answer[5] = 0;
+				} else if (key == '6') {
+					if (answer[6] == 0) answer[6] = 1; else answer[6] = 0;
+				} else if (key == '7') {
+					if (answer[7] == 0) answer[7] = 1; else answer[7] = 0;
+				} else if (key == '8') {
+					if (answer[8] == 0) answer[8] = 1; else answer[8] = 0;
+				} else if (key == '9') {
+					if (answer[9] == 0) answer[9] = 1; else answer[9] = 0;
+				} else if (key == 'U') {
+					if (start > 1) start--;
+				} else if (key == 'D') {
+					if (start <= displen) start++;
+				}
+				if (key != 'U' && key != 'D' && key != '0' && key != '#') {
+					myanswer.setLength(0);
+					for (idx = 1; idx < answer.length; idx++) {
+						if (answer[idx] == 1) myanswer.append(idx);
+					}
+					myanswer.append("*");
+				}
+				drawKey(g, myanswer.toString());
+				sleep(100);
+			}
+			if (badq == 0) {
+				drawKey(g, myanswer.toString());
+			} else if (badq == 1 && qcnt < Q_PRIORITY) {
+				drawKey(g, myanswer.toString() + "　<--- [ x ]");
+			} else if (badq == 2 && qcnt < Q_LATEST) {
+				drawKey(g, myanswer.toString() + "　<--- [ xx ]");
+			} else {
+				drawKey(g, myanswer.toString() + "　<--- [ " + quizdata[0].toString() + " ]");
+				if (qat[qno][4] != 2) badcnt++;
+				qat[qno][4] = 2;
+				badq = WRONG_ANSWER;
+			}
+			sleep(100);
+			drawText(g, start, qno, qcnt, displen + 1, badcnt);
+			canvas.repaint();
+			canvas.serviceRepaints();
+		}
+	}
+	
+	public void sleep(long millis) {
+		try {
+			Thread.sleep(millis);
+		} catch (InterruptedException e) {
+			// 例外は発生しない
+		}
+	}
+	
+	public int QuizDispSet(int qno) {
+		int displen;
+		int idx1,idx2;
+		int qidx = 1;
+		int start,end;
+		StringBuffer[] readchoice = new StringBuffer[150];
+		int choiceno;
+		int[] choice = new int[9];
+		int nextchoice;
+		int choicecnt;
+		int anscnt = 0;
+		StringBuffer anslist = new StringBuffer(9);
+		for (idx1 = 0; idx1 < qat[qno][2]; idx1++) {
+			if (qtemplate[idx1].length() > 2) {
+				if (qtemplate[idx1].toString().substring(0,2).equals(" ]") == true || qtemplate[idx1].toString().substring(0,2).equals("*]") == true) break;
+			}
+			start = 0;
+			while (cf.CalcStrLen(qtemplate[idx1].toString().substring(start)) > 40) {
+				end = qtemplate[idx1].length();
+				quizdata[qidx] = new StringBuffer(qtemplate[idx1].toString().substring(start,end));
+				do {
+					end--;
+					quizdata[qidx] = new StringBuffer(qtemplate[idx1].toString().substring(start,end));
+				} while (cf.CalcStrLen(quizdata[qidx].toString()) > 40);
+				qidx++;
+				start = end;
+			}
+			quizdata[qidx] = new StringBuffer(qtemplate[idx1].toString().substring(start));
+			qidx++;
+		}
+		choiceno = 0;
+		for (idx2 = 0; idx2 < choice.length; idx2++) choice[idx2] = 0;
+		for ( ; idx1 < qat[qno][2]; idx1++) {
+				readchoice[choiceno] = new StringBuffer(qtemplate[idx1].toString());
+				choice[choiceno] = 1;
+				choiceno++;
+		}
+		for (idx1 = 0; idx1 < choiceno; idx1++) {
+			start = 2;
+			do {
+				nextchoice = cf.RandNum(choiceno);
+			} while (choice[nextchoice] == 0);
+			choice[nextchoice] = 0;
+			choicecnt = 0;
+			quizdata[0] = new StringBuffer("");
+			while (cf.CalcStrLen(readchoice[nextchoice].toString().substring(start)) > 38) {
+				end = readchoice[nextchoice].length();
+				quizdata[qidx] = new StringBuffer(readchoice[nextchoice].toString().substring(start,end));
+				do {
+					end--;
+					quizdata[qidx] = new StringBuffer(readchoice[nextchoice].toString().substring(start,end));
+				} while (cf.CalcStrLen(quizdata[qidx].toString()) > 38);
+				if (choicecnt == 0) {
+					quizdata[qidx].insert(0,".");
+					quizdata[qidx].insert(0,idx1+1);
+					choicecnt++;
+					if (readchoice[nextchoice].toString().substring(0,2).equals("*]") == true) {
+						anslist.append(idx1+1);
+						anscnt++;
+					}
+				} else {
+					quizdata[qidx].insert(0,"  ");
+				}
+				qidx++;
+				start = end;
+			}
+			quizdata[qidx] = new StringBuffer(readchoice[nextchoice].toString().substring(start));
+			if (choicecnt == 0) {
+				quizdata[qidx].insert(0,".");
+				quizdata[qidx].insert(0,idx1+1);
+				if (readchoice[nextchoice].toString().substring(0,2).equals("*]") == true) {
+					anslist.append(idx1+1);
+					anscnt++;
+				}
+			} else {
+				quizdata[qidx].insert(0,"  ");
+			}
+			qidx++;
+		}
+		if (anscnt > 0) {
+			quizdata[0] = new StringBuffer(anslist.toString());
+		} else {
+			quizdata[0] = new StringBuffer("123456789");
+		}
+		quizdata[0].append("*");
+		quizdata[1].append(" <"+qno+"="+qat[qno][0]+","+qat[qno][1]+","+qat[qno][4]+">");
+		quizdata[qidx] = new StringBuffer("---END---");
+		if (qidx <= 24) {
+			displen = 0;
+		} else {
+			displen = qidx - 24;
+		}
+		return displen;
+	}
+	
+	public int NextQuestion(int qcnt) {
+		int nextq;
+		int idx;
+		int qno;
+		do {
+			nextq = cf.RandNum(SUBJECT_TOTAL);
+		} while (qat[nextq][4] == 1);
+		qno = nextq;
+		for (idx = qcnt; idx < SUBJECT_TOTAL; idx=idx+40) {
+			do {
+				nextq = cf.RandNum(SUBJECT_TOTAL);
+			} while (qat[nextq][4] == 1);
+			if (qcnt < Q_RANDOM && qat[qno][3] < qat[nextq][3]) {
+				qno = nextq;
+			} else if (qcnt >= Q_RANDOM && qat[nextq][4] == 2) {
+				qno = nextq;
+			}
+		}
+		return qno;
+	}
+	
+	public void QatInit() {
+		int idx1;
+		int idx2 = 0;
+		for (idx1 = 0; idx1 < SUBJECT_TOTAL; idx1++) {
+			if (idx1 < stext1.Qtotal()) {
+				qat[idx1][0] = 1;
+				qat[idx1][1] = idx2;
+				qat[idx1][2] = stext1.Qlength(idx2);
+				qat[idx1][3] = Integer.valueOf(stext1.Qdate(idx2++)).intValue();
+				qat[idx1][4] = 0;
+				if (idx2 >= stext1.Qtotal()) idx2 = 0;
+			} else if (idx1 < stext1.Qtotal() + stext2.Qtotal()) {
+				qat[idx1][0] = 2;
+				qat[idx1][1] = idx2;
+				qat[idx1][2] = stext2.Qlength(idx2);
+				qat[idx1][3] = Integer.valueOf(stext2.Qdate(idx2++)).intValue();
+				qat[idx1][4] = 0;
+				if (idx2 >= stext2.Qtotal()) idx2 = 0;
+			} else if (idx1 < stext1.Qtotal() + stext2.Qtotal() + stext3.Qtotal()) {
+				qat[idx1][0] = 3;
+				qat[idx1][1] = idx2;
+				qat[idx1][2] = stext3.Qlength(idx2);
+				qat[idx1][3] = Integer.valueOf(stext3.Qdate(idx2++)).intValue();
+				qat[idx1][4] = 0;
+				if (idx2 >= stext3.Qtotal()) idx2 = 0;
+			} else {
+				qat[idx1][0] = 4;
+				qat[idx1][1] = idx2;
+				qat[idx1][2] = stext4.Qlength(idx2);
+				qat[idx1][3] = Integer.valueOf(stext4.Qdate(idx2++)).intValue();
+				qat[idx1][4] = 0;
+			}
+		}
+	}
+	
+	public void SetTemplate(int qno) {
+		int idx;
+		for (idx = 0; idx < qat[qno][2]; idx++) {
+			if (qat[qno][0] ==  1) {
+				qtemplate[idx] = new StringBuffer(stext1.Text(qat[qno][1],idx).toString());
+			} else if (qat[qno][0] ==  2) {
+				qtemplate[idx] = new StringBuffer(stext2.Text(qat[qno][1],idx).toString());
+			} else if (qat[qno][0] ==  3) {
+				qtemplate[idx] = new StringBuffer(stext3.Text(qat[qno][1],idx).toString());
+			} else {
+				qtemplate[idx] = new StringBuffer(stext4.Text(qat[qno][1],idx).toString());
+			}
+		}
+	}
+
+}
